@@ -262,7 +262,7 @@ var slotSteps = []struct {
 
 templ slotGenerator(d adminPage, st *model.StandView) {
 	{{ g := d.Gen[st.ID] }}
-	<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands/" + i64(st.ID) + "/slots") } class="stack">
+	<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands/" + i64(st.ID) + "/slots") } class="stack" data-slot-preview>
 		<p class="hint">Donnez la plage horaire du stand, on la découpe pour vous.</p>
 		<label>Jour <input type="date" name="date" value={ g.Date } required/></label>
 		<div class="row2">
@@ -281,7 +281,8 @@ templ slotGenerator(d adminPage, st *model.StandView) {
 			<label>Personnes par créneau <input type="number" name="min" value="2" min="1" max="1000" required/></label>
 			<label><span class="label-text">Maximum <span class="opt">facultatif</span></span> <input type="number" name="max" min="1" max="1000"/></label>
 		</div>
-		<div><button class="btn primary" type="submit">Créer les créneaux</button></div>
+		<div class="slot-preview" aria-live="polite" hidden></div>
+		<div><button class="btn primary" type="submit" data-preview-submit>Créer les créneaux</button></div>
 	</form>
 }
 

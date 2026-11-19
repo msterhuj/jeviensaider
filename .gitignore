@@ -5,3 +5,5 @@
 *.db-shm
 backup-*.db
 .env
+# Generated from the .templ pages by `make generate`
+*_templ.go

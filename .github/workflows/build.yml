@@ -26,8 +26,8 @@ jobs:
           go-version-file: go.mod
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
-      - name: templ files generated
-        run: go tool templ generate && git diff --exit-code
+      - name: generate pages (templ)
+        run: go tool templ generate
       - name: vet
         run: go vet ./...
       - name: test (race)
@@ -62,6 +62,7 @@ jobs:
           GOARM: ${{ matrix.goarm }}
         run: |
           name=benevole-${GOOS}-${GOARCH}${GOARM:+v$GOARM}
+          GOOS= GOARCH= GOARM= go tool templ generate
           go build -trimpath -ldflags '-s -w' -o "dist/$name" ./cmd/benevole
           echo "NAME=$name" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

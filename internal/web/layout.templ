@@ -14,7 +14,9 @@ templ layout(c Common, o pageOpts) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="robots" content="noindex, nofollow"/>
-			<meta name="theme-color" content="#c2410c"/>
+			<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/>
+			<meta name="theme-color" content="#131316" media="(prefers-color-scheme: dark)"/>
+			<meta name="color-scheme" content="light dark"/>
 			<meta name="htmx-config" content='{"historyCacheSize":0,"refreshOnHistoryMiss":true,"allowEval":false}'/>
 			<title>{ c.Title }</title>
 			<link rel="icon" href={ asset("logo.svg") } type="image/svg+xml"/>
@@ -23,6 +25,7 @@ templ layout(c Common, o pageOpts) {
 			<script src={ asset("app.js") } defer></script>
 		</head>
 		<body>
+			<a class="skip-link" href="#main">Aller au contenu</a>
 			<header class="topbar">
 				<div class={ "container", templ.KV("wide", o.Wide || o.Admin) }>
 					<a href="/" class="brand"><img src={ asset("logo.svg") } alt="" width="32" height="32"/><span>Je viens <b>aider</b></span></a>

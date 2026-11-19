@@ -66,12 +66,14 @@ toolchain by itself. No C toolchain is needed: the SQLite driver is pure Go.
 make run      # http://localhost:8080, database ./benevole.db
 make test     # unit + HTTP tests
 make build    # ./benevole, a static binary
-make generate # after editing a .templ page: regenerate its *_templ.go
+make generate # generate the pages' Go code (the other targets do it first)
 ```
 
-Pages are written with [templ](https://templ.guide). The generated
-`*_templ.go` files are committed, so a plain `go build` works; CI checks that
-they are up to date.
+Pages are written with [templ](https://templ.guide). Their generated Go code
+(`*_templ.go`) is not committed: run `make generate` (or
+`go tool templ generate`) once after cloning and after editing a `.templ`
+file, before a plain `go build` or `go test`. The `make` targets, CI and the
+Dockerfile do it for you.
 
 Open http://localhost:8080, create an event, and keep the admin link it gives
 you.

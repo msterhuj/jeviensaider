@@ -9,6 +9,8 @@ ENV CGO_ENABLED=0 GOTOOLCHAIN=local
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
+# Pages are templ components: generate their Go code (not committed).
+RUN go tool templ generate
 ARG TARGETOS TARGETARCH TARGETVARIANT
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH GOARM=${TARGETVARIANT#v} \
     go build -trimpath -ldflags '-s -w' -o /out/benevole ./cmd/benevole \

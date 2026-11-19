@@ -95,6 +95,61 @@
     if (msg && !window.confirm(msg)) e.preventDefault();
   }, true);
 
+  // Slot generator: preview the slots the form will create, the same way
+  // the server cuts them (internal/slotgen): consecutive slots of the chosen
+  // length, the last one shorter if the range is not a multiple of it.
+  var MAX_SLOTS = 96;
+  function hm(m) { var h = Math.floor(m / 60), r = m % 60; return h + "h" + (r ? (r < 10 ? "0" : "") + r : ""); }
+  function minutes(v) { var p = /^(\d{1,2}):(\d{2})/.exec(v || ""); return p ? +p[1] * 60 + +p[2] : null; }
+  function previewSlots(form) {
+    var box = form.querySelector(".slot-preview");
+    var submit = form.querySelector("[data-preview-submit]");
+    if (!box) return;
+    var from = minutes(form.elements.from.value), to = minutes(form.elements.to.value);
+    var stepInput = form.querySelector("input[name=step]:checked");
+    var step = stepInput ? +stepInput.value : 60;
+    var min = parseInt(form.elements.min.value, 10);
+    box.hidden = false;
+    box.textContent = "";
+    box.classList.remove("error");
+    var fail = function (msg) { box.classList.add("error"); box.textContent = msg; if (submit) submit.textContent = "Créer les créneaux"; };
+    if (from === null || to === null) { box.hidden = true; return; }
+    if (to <= from) { fail("L'heure de fin doit être après l'heure de début."); return; }
+    if (!step || step > to - from) step = to - from;
+    var slots = [];
+    for (var t = from; t < to; t += step) slots.push([t, Math.min(t + step, to)]);
+    if (slots.length > MAX_SLOTS) { fail("Trop de créneaux (" + MAX_SLOTS + " au maximum) : choisissez une durée plus longue."); return; }
+    var n = slots.length;
+    var title = document.createElement("strong");
+    title.textContent = "Cela crée " + n + " créneau" + (n > 1 ? "x" : "") +
+      (min > 0 ? ", " + n * min + " place" + (n * min > 1 ? "s" : "") + " à remplir" : "");
+    var list = document.createElement("ul");
+    slots.forEach(function (s) {
+      var li = document.createElement("li");
+      li.textContent = hm(s[0]) + " – " + hm(s[1]);
+      list.appendChild(li);
+    });
+    box.appendChild(title);
+    box.appendChild(list);
+    if (submit) submit.textContent = n > 1 ? "Créer les " + n + " créneaux" : "Créer le créneau";
+  }
+  function initPreviews(root) {
+    root.querySelectorAll("form[data-slot-preview]").forEach(previewSlots);
+  }
+  document.addEventListener("input", function (e) {
+    var f = e.target.form;
+    if (f && f.hasAttribute("data-slot-preview")) previewSlots(f);
+  });
+  document.addEventListener("change", function (e) {
+    var f = e.target.form;
+    if (f && f.hasAttribute("data-slot-preview")) previewSlots(f);
+  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () { initPreviews(document); });
+  } else {
+    initPreviews(document);
+  }
+
   // Select-on-focus for read-only link fields.
   document.addEventListener("focusin", function (e) {
     var t = e.target;

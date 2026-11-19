@@ -4,7 +4,7 @@ templ signupView(d signupPage) {
 	@layout(d.Common, pageOpts{}) {
 		@backLink(d.EventURL, "Tous les créneaux")
 		<div class="card narrow">
-			@signupForm(d)
+			@signupForm(d, true)
 		</div>
 	}
 }
@@ -12,14 +12,18 @@ templ signupView(d signupPage) {
 templ signupDialog(d signupPage) {
 	<dialog class="modal" aria-labelledby="signup-title">
 		<button type="button" class="close" data-close aria-label="Fermer">×</button>
-		@signupForm(d)
+		@signupForm(d, false)
 	</dialog>
 }
 
-templ signupForm(d signupPage) {
+templ signupForm(d signupPage, page bool) {
 	<div class="signup-head" style={ standStyle(d.Slot.Stand.Color) }>
 		<p class="when"><span class="dot"></span>{ capitalize(dayFR(d.Slot.StartsAt)) } · { hm(d.Slot.StartsAt) } – { hm(d.Slot.EndsAt) }</p>
-		<h2 id="signup-title">{ d.Slot.Stand.Name }</h2>
+		if page {
+			<h1 id="signup-title">{ d.Slot.Stand.Name }</h1>
+		} else {
+			<h2 id="signup-title">{ d.Slot.Stand.Name }</h2>
+		}
 		if d.Slot.Stand.Description != "" {
 			<p class="desc signup-desc">{ d.Slot.Stand.Description }</p>
 		}
@@ -55,16 +59,16 @@ templ signupForm(d signupPage) {
 			</div>
 		}
 		<form method="post" action={ templ.SafeURL(d.EventURL + "/slots/" + i64(d.Slot.ID) + "/signup") } class="stack">
-			<label>
-				Prénom et nom
-				<input name="name" value={ d.Form.Name } required maxlength="80" autocomplete="name"/>
-				<span class="hint">Sur la page, les autres verront votre prénom et l'initiale de votre nom.</span>
-			</label>
-			<label>
-				<span class="label-text">Téléphone <span class="opt">facultatif</span></span>
-				<input type="tel" name="phone" value={ d.Form.Phone } maxlength="30" autocomplete="tel"/>
-				<span class="hint">Seuls les organisateurs le voient, pour vous joindre le jour J.</span>
-			</label>
+			<div class="field">
+				<label for="signup-name">Prénom et nom</label>
+				<input id="signup-name" aria-describedby="signup-name-hint" name="name" value={ d.Form.Name } required maxlength="80" autocomplete="name"/>
+				<span class="hint" id="signup-name-hint">Sur la page, les autres verront votre prénom et l'initiale de votre nom.</span>
+			</div>
+			<div class="field">
+				<label for="signup-phone"><span class="label-text">Téléphone <span class="opt">facultatif</span></span></label>
+				<input id="signup-phone" aria-describedby="signup-phone-hint" type="tel" name="phone" value={ d.Form.Phone } maxlength="30" autocomplete="tel"/>
+				<span class="hint" id="signup-phone-hint">Seuls les organisateurs le voient, pour vous joindre le jour J.</span>
+			</div>
 			<label>
 				<span class="label-text">Un mot pour l'équipe <span class="opt">facultatif</span></span>
 				<input name="comment" value={ d.Form.Comment } maxlength="300"/>
@@ -86,7 +90,7 @@ templ standView(d standPage) {
 	@layout(d.Common, pageOpts{}) {
 		@backLink(d.EventURL, "Tous les créneaux")
 		<div class="card narrow">
-			@standInfo(d)
+			@standInfo(d, true)
 		</div>
 	}
 }
@@ -94,13 +98,17 @@ templ standView(d standPage) {
 templ standDialog(d standPage) {
 	<dialog class="modal" aria-labelledby="stand-title">
 		<button type="button" class="close" data-close aria-label="Fermer">×</button>
-		@standInfo(d)
+		@standInfo(d, false)
 		<div class="modal-actions"><button type="button" class="btn" data-close autofocus>Fermer</button></div>
 	</dialog>
 }
 
-templ standInfo(d standPage) {
-	<h2 id="stand-title" class="stand-title" style={ standStyle(d.Stand.Color) }><span class="dot"></span>{ d.Stand.Name }</h2>
+templ standInfo(d standPage, page bool) {
+	if page {
+		<h1 id="stand-title" class="stand-title" style={ standStyle(d.Stand.Color) }><span class="dot"></span>{ d.Stand.Name }</h1>
+	} else {
+		<h2 id="stand-title" class="stand-title" style={ standStyle(d.Stand.Color) }><span class="dot"></span>{ d.Stand.Name }</h2>
+	}
 	if d.Stand.Description != "" {
 		<p class="desc stand-full">{ d.Stand.Description }</p>
 	}

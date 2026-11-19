@@ -28,10 +28,10 @@ templ homeView(d homePage) {
 					<span class="label-text">Message aux bénévoles <span class="opt">facultatif, affiché en haut de la page</span></span>
 					<textarea name="description" rows="3" maxlength="2000" placeholder="Rendez-vous 15 minutes avant votre créneau au stand accueil.">{ d.Form.Description }</textarea>
 				</label>
-				<label>
-					Votre e-mail
-					<input type="email" name="admin_email" value={ d.Form.AdminEmail } required maxlength="120" autocomplete="email"/>
-					<span class="hint">
+				<div class="field">
+					<label for="home-email">Votre e-mail</label>
+					<input id="home-email" aria-describedby="home-email-hint" type="email" name="admin_email" value={ d.Form.AdminEmail } required maxlength="120" autocomplete="email"/>
+					<span class="hint" id="home-email-hint">
 						if d.MailEnabled {
 							On y envoie votre lien d'organisation.
 						} else {
@@ -39,14 +39,14 @@ templ homeView(d homePage) {
 						}
 						Les bénévoles ne le voient jamais.
 					</span>
-				</label>
+				</div>
 				<label class="check"><input type="checkbox" name="notify" value="1" checked?={ d.Form.NotifySignups }/> <span>Me prévenir par e-mail à chaque inscription ou désinscription</span></label>
 				if d.NeedPassword {
-					<label>
-						Mot de passe de création
-						<input type="password" name="password" required autocomplete="current-password"/>
-						<span class="hint">Donné par la personne qui héberge ce site.</span>
-					</label>
+					<div class="field">
+						<label for="home-password">Mot de passe de création</label>
+						<input id="home-password" aria-describedby="home-password-hint" type="password" name="password" required autocomplete="current-password"/>
+						<span class="hint" id="home-password-hint">Donné par la personne qui héberge ce site.</span>
+					</div>
 				}
 				<button type="submit" class="btn primary block">Créer l'événement</button>
 			</form>
