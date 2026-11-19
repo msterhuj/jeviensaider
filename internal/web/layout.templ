@@ -1,0 +1,117 @@
+package web
+
+// pageOpts are the per-page extras of the layout's header.
+type pageOpts struct {
+	Admin  bool   // organiser page: shows the "Organisation" badge
+	MeLink string // the visitor's "Mes créneaux" page, if known
+	Wide   bool   // a page with a wide planning grid
+}
+
+templ layout(c Common, o pageOpts) {
+	<!DOCTYPE html>
+	<html lang="fr">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<meta name="theme-color" content="#c2410c"/>
+			<meta name="htmx-config" content='{"historyCacheSize":0,"refreshOnHistoryMiss":true,"allowEval":false}'/>
+			<title>{ c.Title }</title>
+			<link rel="icon" href={ asset("logo.svg") } type="image/svg+xml"/>
+			<link rel="stylesheet" href={ asset("app.css") }/>
+			<script src={ asset("htmx.min.js") } defer></script>
+			<script src={ asset("app.js") } defer></script>
+		</head>
+		<body>
+			<header class="topbar">
+				<div class={ "container", templ.KV("wide", o.Wide || o.Admin) }>
+					<a href="/" class="brand"><img src={ asset("logo.svg") } alt="" width="32" height="32"/><span>Je viens <b>aider</b></span></a>
+					if o.Admin {
+						<span class="badge-admin">
+							@iconLock()
+							Organisation
+						</span>
+					}
+					if o.MeLink != "" {
+						<a class="top-link" href={ templ.SafeURL(o.MeLink) }>Mes créneaux</a>
+					}
+				</div>
+			</header>
+			<main class={ "container", templ.KV("wide", o.Wide || o.Admin), templ.KV("admin", o.Admin) } id="main">
+				@flash(c.Flash)
+				{ children... }
+			</main>
+			<div id="modal"></div>
+		</body>
+	</html>
+}
+
+templ flash(f *Flash) {
+	if f != nil {
+		<div class={ "callout", f.Kind } role="status">{ f.Message }</div>
+	}
+}
+
+// ---- icons: inline stroke SVG, decorative ----
+templ iconLock() {
+	<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+}
+
+templ iconCheck() {
+	<svg class="icon-check" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12.5l2.5 2.5L16 9.5"></path></svg>
+}
+
+templ iconCalendar() {
+	<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+}
+
+templ iconShare() {
+	<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"></path></svg>
+}
+
+templ iconPhone() {
+	<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"></path></svg>
+}
+
+templ iconBack() {
+	<svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+}
+
+templ iconPlus() {
+	<svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+}
+
+// progress is the fill bar of a planning or a stand.
+templ progress(count, needed int) {
+	<div class="progress" role="img" aria-label={ itoa(count) + " places prises sur " + itoa(needed) }>
+		<div class="progress-bar" style={ templ.SafeCSS("width: " + itoa(pct(count, needed)) + "%") }></div>
+	</div>
+}
+
+templ backLink(href, label string) {
+	<p class="back">
+		<a href={ templ.SafeURL(href) }>
+			@iconBack()
+			{ label }
+		</a>
+	</p>
+}
+
+templ errorView(d errorPage) {
+	@layout(d.Common, pageOpts{}) {
+		<div class="card narrow error-page">
+			<h1>
+				switch d.Status {
+					case 404:
+						Introuvable
+					case 429:
+						Doucement !
+					default:
+						Oups
+				}
+			</h1>
+			<p>{ d.Message }</p>
+			<p><button type="button" class="linklike" data-back>← Retour</button></p>
+		</div>
+	}
+}

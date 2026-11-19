@@ -26,6 +26,8 @@ jobs:
           go-version-file: go.mod
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: templ files generated
+        run: go tool templ generate && git diff --exit-code
       - name: vet
         run: go vet ./...
       - name: test (race)

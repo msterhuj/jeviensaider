@@ -141,12 +141,12 @@ func setupEvent(t *testing.T, e *env, admin *http.Client) (adminPath, publicPath
 		"date": {"2026-06-20"}, "from": {"14:00"}, "to": {"17:00"}, "step": {"60"}, "min": {"2"}, "max": {"2"},
 	})
 	expect(t, r, http.StatusSeeOther)
-	expect(t, e.get(admin, adminPath), 200, "3 créneau(x) ajouté(s)", "il manque 6")
+	expect(t, e.get(admin, adminPath), 200, "3 créneau(x) ajouté(s)", "Il reste 6 places")
 
 	expect(t, e.post(admin, adminPath+"/status", url.Values{"status": {"open"}}), http.StatusSeeOther)
 
 	r = e.get(e.client(), publicPath)
-	expect(t, r, 200, "Pêche aux canards", "0/2", "Il reste encore 6 places&nbsp;!", "st-empty")
+	expect(t, r, 200, "Pêche aux canards", "Il reste 2 places", "Il reste 6 places", "st-empty")
 	for _, m := range slotLinkRe.FindAllStringSubmatch(r.body, -1) {
 		if len(slots) == 0 || slots[len(slots)-1] != m[1] {
 			slots = append(slots, m[1])
@@ -212,7 +212,7 @@ func TestSignup(t *testing.T) {
 
 	// The public page shows "Marie D." only.
 	r := e.get(e.client(), pub)
-	expect(t, r, 200, "Marie D.", "1/2", "st-partial")
+	expect(t, r, 200, "Marie D.", "Il reste 1 place", "st-partial")
 	if strings.Contains(r.body, "Dupont") || strings.Contains(r.body, "07 11 22 33 44") {
 		t.Fatal("public page leaks personal data")
 	}
@@ -221,7 +221,7 @@ func TestSignup(t *testing.T) {
 	if loc := e.signUp(marie, pub, slots[1], "Marie Dupont"); loc != pub {
 		t.Fatalf("expected a redirect to the planning, got %q", loc)
 	}
-	expect(t, e.get(marie, pub), 200, "C&#39;est noté", `<span class="cell-me">Vous</span>`)
+	expect(t, e.get(marie, pub), 200, "C&#39;est noté", `class="slot-me"`, "Vous y êtes")
 }
 
 func TestSignupRefused(t *testing.T) {
@@ -236,7 +236,7 @@ func TestSignupRefused(t *testing.T) {
 	// A full slot.
 	e.signUp(e.client(), pub, slots[0], "Paul Martin")
 	expect(t, e.post(e.client(), pub+"/slots/"+slots[0]+"/signup", url.Values{"name": {"Léa"}}), 409, "complet")
-	expect(t, e.get(e.client(), pub), 200, "2/2", "st-full")
+	expect(t, e.get(e.client(), pub), 200, "Complet", "st-full")
 	// A closed event, where the organiser can still add someone.
 	expect(t, e.post(admin, adminPath+"/status", url.Values{"status": {"closed"}}), http.StatusSeeOther)
 	expect(t, e.post(e.client(), pub+"/slots/"+slots[2]+"/signup", url.Values{"name": {"Zoé"}}), 409, "pas ouvertes")
@@ -424,5 +424,5 @@ func TestSignupNameOnly(t *testing.T) {
 	c := e.client()
 	r := e.post(c, pub+"/slots/"+slots[0]+"/signup", url.Values{"name": {"Jules"}})
 	expect(t, r, http.StatusSeeOther)
-	expect(t, e.get(c, r.location), 200, "Merci Jules", "Téléphone (facultatif)")
+	expect(t, e.get(c, r.location), 200, "Merci Jules", `Téléphone <span class="opt">facultatif`)
 }

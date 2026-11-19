@@ -4,7 +4,6 @@ package web
 
 import (
 	"errors"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -42,17 +41,15 @@ type Config struct {
 
 // Server holds the dependencies of the HTTP handlers.
 type Server struct {
-	store        *store.Store
-	cfg          Config
-	log          *slog.Logger
-	pages        map[string]*template.Template
-	assetVersion string
-	limiter      *limiter
-	mails        *mailBudget
-	now          func() time.Time
+	store   *store.Store
+	cfg     Config
+	log     *slog.Logger
+	limiter *limiter
+	mails   *mailBudget
+	now     func() time.Time
 }
 
-// New builds a Server and parses its templates.
+// New builds a Server.
 func New(st *store.Store, cfg Config) (*Server, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
@@ -70,9 +67,6 @@ func New(st *store.Store, cfg Config) (*Server, error) {
 	s.now = cfg.Now
 	if s.now == nil {
 		s.now = time.Now
-	}
-	if err := s.loadTemplates(); err != nil {
-		return nil, err
 	}
 	return s, nil
 }

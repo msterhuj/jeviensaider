@@ -2,60 +2,23 @@ package web
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"embed"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
+
+	"github.com/a-h/templ"
 
 	"benevole-ape/internal/model"
 )
 
-//go:embed templates/*.html
-var templateFS embed.FS
-
 //go:embed static
 var staticFS embed.FS
-
-var pageNames = []string{"home", "event", "signup", "stand", "admin", "error"}
-
-func (s *Server) loadTemplates() error {
-	sum := sha256.New()
-	for _, f := range []string{"static/app.css", "static/app.js", "static/htmx.min.js"} {
-		b, err := staticFS.ReadFile(f)
-		if err != nil {
-			return err
-		}
-		sum.Write(b)
-	}
-	s.assetVersion = hex.EncodeToString(sum.Sum(nil))[:10]
-
-	funcs := templateFuncs()
-	funcs["asset"] = func(name string) string { return "/static/" + name + "?v=" + s.assetVersion }
-
-	base, err := template.New("base").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/partials.html")
-	if err != nil {
-		return err
-	}
-	s.pages = map[string]*template.Template{}
-	for _, name := range pageNames {
-		t, err := base.Clone()
-		if err != nil {
-			return err
-		}
-		if _, err := t.ParseFS(templateFS, "templates/"+name+".html"); err != nil {
-			return fmt.Errorf("template %s: %w", name, err)
-		}
-		s.pages[name] = t
-	}
-	return nil
-}
 
 func (s *Server) staticHandler() http.Handler {
 	sub, err := fs.Sub(staticFS, "static")
@@ -122,22 +85,12 @@ func (s *Server) common(w http.ResponseWriter, r *http.Request, title string) Co
 
 func isHTMX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
 
-// render executes the "layout" template of a page.
-func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, page string, data any) {
-	s.renderTemplate(w, r, status, page, "layout", data)
-}
-
-// renderTemplate executes a named template of a page's template set.
-func (s *Server) renderTemplate(w http.ResponseWriter, r *http.Request, status int, page, name string, data any) {
-	t, ok := s.pages[page]
-	if !ok {
-		s.log.Error("unknown page", "page", page)
-		http.Error(w, "Erreur interne", http.StatusInternalServerError)
-		return
-	}
+// render writes a page (a templ component) with the given status. It is
+// rendered to a buffer first, so that a failure becomes a clean 500.
+func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, page templ.Component) {
 	var buf bytes.Buffer
-	if err := t.ExecuteTemplate(&buf, name, data); err != nil {
-		s.log.Error("template", "page", page, "name", name, "err", err)
+	if err := page.Render(r.Context(), &buf); err != nil {
+		s.log.Error("render", "path", r.URL.Path, "err", err)
 		http.Error(w, "Erreur interne", http.StatusInternalServerError)
 		return
 	}
@@ -153,7 +106,7 @@ type errorPage struct {
 }
 
 func (s *Server) renderError(w http.ResponseWriter, r *http.Request, status int, msg string) {
-	s.render(w, r, status, "error", errorPage{Common: Common{Title: "Oups"}, Status: status, Message: msg})
+	s.render(w, r, status, errorView(errorPage{Common: Common{Title: "Oups"}, Status: status, Message: msg}))
 }
 
 // absURL turns a path into an absolute URL for display and sharing.
@@ -198,30 +151,15 @@ func dateFR(s string) string {
 	return dayFR(t) + " " + strconv.Itoa(t.Year())
 }
 
-// fillLabel is the French name of a slot's fill status (model.Fill*).
-func fillLabel(status string) string {
-	switch status {
-	case model.FillEmpty:
-		return "personne"
-	case model.FillPartial:
-		return "à compléter"
-	case model.FillOK:
-		return "OK"
-	case model.FillFull:
-		return "complet"
-	}
-	return status
-}
-
 // eventStatusLabel is the French name of an event status.
 func eventStatusLabel(status string) string {
 	switch status {
 	case model.StatusDraft:
 		return "Brouillon"
 	case model.StatusOpen:
-		return "Ouvert"
+		return "Ouvertes"
 	case model.StatusClosed:
-		return "Clos"
+		return "Closes"
 	}
 	return status
 }
@@ -234,55 +172,13 @@ func todoURL(base string, todo bool) string {
 	return base
 }
 
-func templateFuncs() template.FuncMap {
+// mailFuncs are the helpers of the e-mail templates.
+func mailFuncs() template.FuncMap {
 	return template.FuncMap{
-		"hm":        hm,
-		"day":       dayFR,
-		"date":      dateFR,
-		"span":      func(a, b time.Time) string { return hm(a) + " – " + hm(b) },
-		"dur":       durationFR,
-		"pub":       model.DisplayName,
-		"fillLabel": fillLabel,
-		"evlabel":   eventStatusLabel,
-		"todoURL":   todoURL,
-		"timeVal":   func(t time.Time) string { return t.Format("15:04") },
-		"dateVal":   func(t time.Time) string { return t.Format(model.DateLayout) },
-		"pct": func(a, b int) int {
-			if b <= 0 {
-				return 100
-			}
-			if a >= b {
-				return 100
-			}
-			return a * 100 / b
-		},
-		"plural": func(n int, one, many string) string {
-			if n > 1 {
-				return many
-			}
-			return one
-		},
-		// dict builds a map for passing several values to a sub-template.
-		"dict": func(kv ...any) (map[string]any, error) {
-			if len(kv)%2 != 0 {
-				return nil, fmt.Errorf("dict: odd number of arguments")
-			}
-			m := make(map[string]any, len(kv)/2)
-			for i := 0; i < len(kv); i += 2 {
-				k, ok := kv[i].(string)
-				if !ok {
-					return nil, fmt.Errorf("dict: key %v is not a string", kv[i])
-				}
-				m[k] = kv[i+1]
-			}
-			return m, nil
-		},
-		"css": func(s string) template.CSS {
-			if validColor(s) {
-				return template.CSS(s)
-			}
-			return template.CSS(defaultColor)
-		},
+		"day":    dayFR,
+		"date":   dateFR,
+		"span":   func(a, b time.Time) string { return hm(a) + " – " + hm(b) },
+		"plural": plural,
 	}
 }
 

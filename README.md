@@ -66,7 +66,12 @@ toolchain by itself. No C toolchain is needed: the SQLite driver is pure Go.
 make run      # http://localhost:8080, database ./benevole.db
 make test     # unit + HTTP tests
 make build    # ./benevole, a static binary
+make generate # after editing a .templ page: regenerate its *_templ.go
 ```
+
+Pages are written with [templ](https://templ.guide). The generated
+`*_templ.go` files are committed, so a plain `go build` works; CI checks that
+they are up to date.
 
 Open http://localhost:8080, create an event, and keep the admin link it gives
 you.
@@ -236,7 +241,7 @@ internal/store/    SQLite access, embedded migrations, sign-up transaction
 internal/mail/     SMTP sender and background queue
 internal/ical/     iCalendar writer (escaping, line folding) for the .ics file
 internal/web/      handlers, middleware, CSV, PDF and calendar exports,
-                   embedded templates and static files (htmx)
+                   pages as templ components (*.templ), static files (htmx)
 ```
 
 [`docs/SPEC.md`](docs/SPEC.md) describes in detail what the app does and how

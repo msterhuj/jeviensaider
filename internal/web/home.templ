@@ -1,0 +1,56 @@
+package web
+
+templ homeView(d homePage) {
+	@layout(d.Common, pageOpts{}) {
+		<section class="hero">
+			<h1>Trouvez des bénévoles pour votre événement</h1>
+			<p class="lead">Un seul lien à partager. Chacun s'inscrit avec son prénom, sans compte.</p>
+			<ol class="steps">
+				<li><span>1</span>Créez l'événement</li>
+				<li><span>2</span>Ajoutez les stands et leurs créneaux</li>
+				<li><span>3</span>Partagez le lien aux bénévoles</li>
+			</ol>
+		</section>
+		<div class="card narrow">
+			if d.Error != "" {
+				<div class="callout error" role="alert">{ d.Error }</div>
+			}
+			<form method="post" action="/events" class="stack">
+				<label>
+					Nom de l'événement
+					<input name="title" value={ d.Form.Title } required maxlength="120" placeholder="Fête de l'école, fest-noz, vide-grenier…"/>
+				</label>
+				<div class="row2">
+					<label><span class="label-text">Date <span class="opt">facultatif</span></span> <input type="date" name="date" value={ d.Form.Date }/></label>
+					<label><span class="label-text">Lieu <span class="opt">facultatif</span></span> <input name="location" value={ d.Form.Location } maxlength="120" placeholder="Salle des fêtes"/></label>
+				</div>
+				<label>
+					<span class="label-text">Message aux bénévoles <span class="opt">facultatif, affiché en haut de la page</span></span>
+					<textarea name="description" rows="3" maxlength="2000" placeholder="Rendez-vous 15 minutes avant votre créneau au stand accueil.">{ d.Form.Description }</textarea>
+				</label>
+				<label>
+					Votre e-mail
+					<input type="email" name="admin_email" value={ d.Form.AdminEmail } required maxlength="120" autocomplete="email"/>
+					<span class="hint">
+						if d.MailEnabled {
+							On y envoie votre lien d'organisation.
+						} else {
+							L'envoi d'e-mails n'est pas encore configuré sur ce serveur : gardez bien le lien affiché après la création.
+						}
+						Les bénévoles ne le voient jamais.
+					</span>
+				</label>
+				<label class="check"><input type="checkbox" name="notify" value="1" checked?={ d.Form.NotifySignups }/> <span>Me prévenir par e-mail à chaque inscription ou désinscription</span></label>
+				if d.NeedPassword {
+					<label>
+						Mot de passe de création
+						<input type="password" name="password" required autocomplete="current-password"/>
+						<span class="hint">Donné par la personne qui héberge ce site.</span>
+					</label>
+				}
+				<button type="submit" class="btn primary block">Créer l'événement</button>
+			</form>
+		</div>
+		<p class="hint narrow center">Pas de compte à créer : vous recevez un lien secret pour tout gérer.</p>
+	}
+}

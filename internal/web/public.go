@@ -23,12 +23,12 @@ type homePage struct {
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, "home", homePage{
+	s.render(w, r, http.StatusOK, homeView(homePage{
 		Common:       s.common(w, r, "Je viens aider"),
 		NeedPassword: s.cfg.CreatePassword != "",
 		MailEnabled:  s.cfg.MailEnabled,
 		Form:         model.Event{NotifySignups: true},
-	})
+	}))
 }
 
 func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
@@ -37,9 +37,9 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		err = userError("Mot de passe de création incorrect.")
 	}
 	if err != nil {
-		s.render(w, r, http.StatusBadRequest, "home", homePage{
+		s.render(w, r, http.StatusBadRequest, homeView(homePage{
 			Common: Common{Title: "Je viens aider"}, NeedPassword: s.cfg.CreatePassword != "", MailEnabled: s.cfg.MailEnabled, Error: err.Error(), Form: ev,
-		})
+		}))
 		return
 	}
 	if err := s.store.CreateEvent(r.Context(), &ev); err != nil {
@@ -64,7 +64,7 @@ func (s *Server) createPasswordOK(r *http.Request) bool {
 // Messages shown when the event does not accept changes.
 const (
 	msgNotOpenYet = "Les inscriptions ne sont pas encore ouvertes. Revenez bientôt !"
-	msgClosed     = "Les inscriptions sont closes : contactez l'APE pour toute modification."
+	msgClosed     = "Les inscriptions sont closes : contactez les organisateurs pour toute modification."
 )
 
 // volunteerID is v's ID, or 0 for an unknown visitor.
@@ -203,7 +203,7 @@ func (s *Server) showEvent(w http.ResponseWriter, r *http.Request, ev *model.Eve
 		data.Tab = "me"
 		data.MyP = p.Mine()
 	}
-	s.render(w, r, http.StatusOK, "event", data)
+	s.render(w, r, http.StatusOK, eventView(data))
 }
 
 // ---- sign-up ----
@@ -261,10 +261,10 @@ func (s *Server) signupForm(w http.ResponseWriter, r *http.Request, ev *model.Ev
 	}
 	data.Slot, data.Overlaps = sv, overlaps
 	if isHTMX(r) {
-		s.renderTemplate(w, r, http.StatusOK, "signup", "signup_dialog", data)
+		s.render(w, r, http.StatusOK, signupDialog(data))
 		return
 	}
-	s.render(w, r, http.StatusOK, "signup", data)
+	s.render(w, r, http.StatusOK, signupView(data))
 }
 
 func (s *Server) signupSubmit(w http.ResponseWriter, r *http.Request, ev *model.Event) {
@@ -320,10 +320,10 @@ func (s *Server) signupFailed(w http.ResponseWriter, r *http.Request, ev *model.
 	if s.storeError(w, r, err) {
 		return
 	}
-	s.render(w, r, status, "signup", signupPage{
+	s.render(w, r, status, signupView(signupPage{
 		Common: Common{Title: "Inscription"}, Event: ev, EventURL: eventURL(ev),
 		Slot: sv, Overlaps: overlaps, Me: me, Form: form, Error: msg,
-	})
+	}))
 }
 
 // ---- stand details ----
@@ -357,10 +357,10 @@ func (s *Server) standInfo(w http.ResponseWriter, r *http.Request, ev *model.Eve
 	}
 	data := standPage{Common: s.common(w, r, st.Name), EventURL: eventURL(ev), Stand: st}
 	if isHTMX(r) {
-		s.renderTemplate(w, r, http.StatusOK, "stand", "stand_dialog", data)
+		s.render(w, r, http.StatusOK, standDialog(data))
 		return
 	}
-	s.render(w, r, http.StatusOK, "stand", data)
+	s.render(w, r, http.StatusOK, standView(data))
 }
 
 // ---- volunteer self-service ----

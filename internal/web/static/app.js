@@ -30,6 +30,21 @@
     }
   });
 
+  // copyText copies a field's value and confirms on the button.
+  function copyText(input, button) {
+    var done = function () {
+      var old = button.innerHTML;
+      button.textContent = "Copié ✓";
+      setTimeout(function () { button.innerHTML = old; }, 1500);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(input.value).then(done);
+    } else {
+      input.select();
+      try { document.execCommand("copy"); done(); } catch (_) {}
+    }
+  }
+
   document.addEventListener("click", function (e) {
     var t = e.target;
     if (!(t instanceof Element)) return;
@@ -52,17 +67,20 @@
     var copy = t.closest("[data-copy]");
     if (copy) {
       var input = document.querySelector(copy.getAttribute("data-copy"));
-      if (!input) return;
-      var done = function () {
-        var old = copy.textContent;
-        copy.textContent = "Copié ✓";
-        setTimeout(function () { copy.textContent = old; }, 1500);
-      };
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(input.value).then(done);
+      if (input) copyText(input, copy);
+      return;
+    }
+
+    // Share a prepared message (phone share sheet), else copy it:
+    // data-share="#textarea-id".
+    var share = t.closest("[data-share]");
+    if (share) {
+      var src = document.querySelector(share.getAttribute("data-share"));
+      if (!src) return;
+      if (navigator.share) {
+        navigator.share({ text: src.value }).catch(function () {});
       } else {
-        input.select();
-        try { document.execCommand("copy"); done(); } catch (_) {}
+        copyText(src, share);
       }
       return;
     }

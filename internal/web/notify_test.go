@@ -77,7 +77,7 @@ func TestOrganiserEmails(t *testing.T) {
 		t.Fatalf("%d messages after sign-up", len(msgs))
 	}
 	m = msgs[0]
-	for _, want := range []string{"Marie Dupont s'est inscrit·e sur « Buvette »", "06 12 34 56 78", "Je viens avec ma fille", "Ce créneau : 1/2, il manque 1 personne", "https://jeviensaider.example" + adminPath} {
+	for _, want := range []string{"Marie Dupont s'est inscrit·e sur « Buvette »", "06 12 34 56 78", "Je viens avec ma fille", "Ce créneau : 1/2, il reste 1 place", "https://jeviensaider.example" + adminPath} {
 		if !strings.Contains(m.Body, want) {
 			t.Errorf("sign-up mail lacks %q:\n%s", want, m.Body)
 		}
@@ -91,7 +91,7 @@ func TestOrganiserEmails(t *testing.T) {
 	signupID := regexp.MustCompile(`/signups/(\d+)/delete`).FindStringSubmatch(e.get(marie, meLink).body)[1]
 	expect(t, e.post(marie, meLink+"/signups/"+signupID+"/delete", url.Values{}), http.StatusSeeOther)
 	msgs = fm.take()
-	if len(msgs) != 1 || !strings.HasPrefix(msgs[0].Subject, "Désinscription : Marie Dupont") || !strings.Contains(msgs[0].Body, "0/2, il manque 2 personnes") {
+	if len(msgs) != 1 || !strings.HasPrefix(msgs[0].Subject, "Désinscription : Marie Dupont") || !strings.Contains(msgs[0].Body, "0/2, il reste 2 places") {
 		t.Fatalf("cancellation mail: %+v", msgs)
 	}
 
@@ -133,7 +133,7 @@ func TestResendLinks(t *testing.T) {
 		t.Fatalf("%d messages", len(msgs))
 	}
 	m := msgs[0]
-	for _, want := range []string{"envoyés depuis sa page d'administration", "https://jeviensaider.example" + adminPath, "Lien public, à partager avec les parents :\nhttps://jeviensaider.example/e/", "Si vous n'organisez pas cet événement"} {
+	for _, want := range []string{"envoyés depuis sa page d'administration", "https://jeviensaider.example" + adminPath, "Lien public, à partager avec les bénévoles :\nhttps://jeviensaider.example/e/", "Si vous n'organisez pas cet événement"} {
 		if !strings.Contains(m.Body, want) {
 			t.Errorf("resent mail lacks %q:\n%s", want, m.Body)
 		}

@@ -48,7 +48,7 @@ func TestAdminEditing(t *testing.T) {
 	expect(t, e.post(admin, adminPath+"/slots/"+slot, url.Values{"from": {"14:00"}, "to": {"15:00"}, "min": {"3"}, "max": {"2"}}), http.StatusSeeOther)
 	expect(t, e.get(admin, adminPath), 200, "Le maximum doit être vide ou supérieur")
 	expect(t, e.post(admin, adminPath+"/slots/"+slot, url.Values{"from": {"14:30"}, "to": {"16:00"}, "min": {"3"}}), http.StatusSeeOther)
-	expect(t, e.get(e.client(), pub), 200, "14h30", "0/3")
+	expect(t, e.get(e.client(), pub), 200, "14h30", "Il reste 3 places")
 
 	// Register someone by hand, then remove them.
 	expect(t, e.post(admin, adminPath+"/signups", url.Values{"slot": {slot}, "name": {"Paul Martin"}, "phone": {"0611223344"}}), http.StatusSeeOther)

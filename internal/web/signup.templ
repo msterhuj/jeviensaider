@@ -1,0 +1,107 @@
+package web
+
+templ signupView(d signupPage) {
+	@layout(d.Common, pageOpts{}) {
+		@backLink(d.EventURL, "Tous les créneaux")
+		<div class="card narrow">
+			@signupForm(d)
+		</div>
+	}
+}
+
+templ signupDialog(d signupPage) {
+	<dialog class="modal" aria-labelledby="signup-title">
+		<button type="button" class="close" data-close aria-label="Fermer">×</button>
+		@signupForm(d)
+	</dialog>
+}
+
+templ signupForm(d signupPage) {
+	<div class="signup-head" style={ standStyle(d.Slot.Stand.Color) }>
+		<p class="when"><span class="dot"></span>{ capitalize(dayFR(d.Slot.StartsAt)) } · { hm(d.Slot.StartsAt) } – { hm(d.Slot.EndsAt) }</p>
+		<h2 id="signup-title">{ d.Slot.Stand.Name }</h2>
+		if d.Slot.Stand.Description != "" {
+			<p class="desc signup-desc">{ d.Slot.Stand.Description }</p>
+		}
+		if d.Slot.Count == 0 && d.Slot.Missing > 0 {
+			<p class="need-text">{ urgentText(d.Slot) } inscrit !</p>
+		} else {
+			<p class={ templ.KV("need-text", d.Slot.Missing > 0), templ.KV("muted", d.Slot.Missing == 0) }>{ slotStatus(d.Slot) }</p>
+		}
+		if len(d.Slot.Signups) > 0 {
+			<p class="muted">Avec { publicNames(d.Slot.Signups) }</p>
+		}
+	</div>
+	if d.Error != "" {
+		<div class="callout error" role="alert">{ d.Error }</div>
+	}
+	if d.Slot.Mine {
+		<div class="callout info">Vous êtes déjà inscrit·e sur ce créneau.</div>
+	} else if !d.Event.IsOpen() {
+		<div class="callout info">Les inscriptions ne sont pas ouvertes.</div>
+	} else if d.Slot.Full {
+		<div class="callout info">Ce créneau est complet. Merci !</div>
+	} else {
+		if len(d.Overlaps) > 0 {
+			<div class="callout warning" role="alert">
+				<strong>Attention, même horaire :</strong> vous êtes déjà inscrit·e
+				for i, o := range d.Overlaps {
+					if i > 0 {
+						,
+					}
+					sur « { o.Stand.Name } » de { hm(o.StartsAt) } – { hm(o.EndsAt) }
+				}
+				. Vous pouvez quand même vous inscrire si vous savez gérer les deux.
+			</div>
+		}
+		<form method="post" action={ templ.SafeURL(d.EventURL + "/slots/" + i64(d.Slot.ID) + "/signup") } class="stack">
+			<label>
+				Prénom et nom
+				<input name="name" value={ d.Form.Name } required maxlength="80" autocomplete="name"/>
+				<span class="hint">Sur la page, les autres verront votre prénom et l'initiale de votre nom.</span>
+			</label>
+			<label>
+				<span class="label-text">Téléphone <span class="opt">facultatif</span></span>
+				<input type="tel" name="phone" value={ d.Form.Phone } maxlength="30" autocomplete="tel"/>
+				<span class="hint">Seuls les organisateurs le voient, pour vous joindre le jour J.</span>
+			</label>
+			<label>
+				<span class="label-text">Un mot pour l'équipe <span class="opt">facultatif</span></span>
+				<input name="comment" value={ d.Form.Comment } maxlength="300"/>
+			</label>
+			<label class="hp" aria-hidden="true">Site web <input name="website" tabindex="-1" autocomplete="off"/></label>
+			<button type="submit" class="btn primary block big">
+				if len(d.Overlaps) > 0 {
+					M'inscrire quand même
+				} else {
+					Je m'inscris
+				}
+			</button>
+			<p class="hint center">Pas d'e-mail, pas de compte. Vous pourrez annuler à tout moment.</p>
+		</form>
+	}
+}
+
+templ standView(d standPage) {
+	@layout(d.Common, pageOpts{}) {
+		@backLink(d.EventURL, "Tous les créneaux")
+		<div class="card narrow">
+			@standInfo(d)
+		</div>
+	}
+}
+
+templ standDialog(d standPage) {
+	<dialog class="modal" aria-labelledby="stand-title">
+		<button type="button" class="close" data-close aria-label="Fermer">×</button>
+		@standInfo(d)
+		<div class="modal-actions"><button type="button" class="btn" data-close autofocus>Fermer</button></div>
+	</dialog>
+}
+
+templ standInfo(d standPage) {
+	<h2 id="stand-title" class="stand-title" style={ standStyle(d.Stand.Color) }><span class="dot"></span>{ d.Stand.Name }</h2>
+	if d.Stand.Description != "" {
+		<p class="desc stand-full">{ d.Stand.Description }</p>
+	}
+}

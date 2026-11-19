@@ -4,7 +4,7 @@ DB      ?= benevole.db
 ADDR    ?= :8080
 LDFLAGS := -s -w
 
-.PHONY: all build run test race vet fmt clean build-arm64 build-armv7 backup
+.PHONY: all build run test race vet fmt generate clean build-arm64 build-armv7 backup
 
 all: vet test build
 
@@ -32,6 +32,11 @@ vet:
 
 fmt:
 	gofmt -w .
+	go tool templ fmt internal/web
+
+# Pages are templ components: regenerate the *_templ.go files after editing a .templ file.
+generate:
+	go tool templ generate
 
 # Consistent hot backup of the database (safe while the server runs).
 backup:

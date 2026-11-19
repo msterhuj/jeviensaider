@@ -1,0 +1,380 @@
+package web
+
+import "benevole-ape/internal/model"
+
+templ adminView(d adminPage) {
+	@layout(d.Common, pageOpts{Admin: true}) {
+		<section class="page-head">
+			<h1>{ d.Event.Title }</h1>
+			@eventMeta(d.Event)
+		</section>
+		if d.Event.AdminEmail == "" {
+			<div class="callout warning">Ajoutez l'e-mail de l'organisateur dans « Modifier l'événement » (en bas de page) pour recevoir les inscriptions par e-mail.</div>
+		}
+		<section class="card" aria-labelledby="status-title">
+			<h2 id="status-title">Inscriptions</h2>
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/status") } class="segmented" aria-label="État des inscriptions">
+				for _, st := range d.Statuses {
+					<button type="submit" name="status" value={ st } class={ templ.KV("on", st == d.Event.Status) } disabled?={ st == d.Event.Status } aria-pressed={ boolStr(st == d.Event.Status) }>{ eventStatusLabel(st) }</button>
+				}
+			</form>
+			<p class="muted">
+				switch d.Event.Status {
+					case model.StatusDraft:
+						Les bénévoles ne voient pas encore les créneaux. Ajoutez vos stands, puis choisissez « Ouvertes ».
+					case model.StatusOpen:
+						Les bénévoles peuvent s'inscrire et se désinscrire.
+					default:
+						Plus personne ne peut s'inscrire ni se désinscrire. Vous pouvez encore inscrire quelqu'un à la main.
+				}
+			</p>
+		</section>
+		<section class="card" aria-label="Avancement">
+			if d.P.Needed == 0 {
+				<p class="big">Pas encore de créneau</p>
+			} else if d.P.Missing > 0 {
+				<p class="big">{ placesLeft(d.P.Missing) }</p>
+			} else {
+				<p class="big">Tous les créneaux sont couverts</p>
+			}
+			@progress(d.P.Count, d.P.Needed)
+			<p class="muted">{ itoa(d.P.Count) }/{ itoa(d.P.Needed) } places prises · { itoa(d.Volunteers) } { plural(d.Volunteers, "bénévole", "bénévoles") }</p>
+		</section>
+		if len(d.P.Columns) > 0 {
+			<section class="admin-planning" aria-labelledby="who-title">
+				<h2 id="who-title">Qui est où, et quand</h2>
+				@adminGrid(d.P)
+			</section>
+		}
+		@adminLinks(d)
+		<section aria-labelledby="stands-title">
+			<div class="section-head">
+				<h2 id="stands-title">Stands</h2>
+			</div>
+			if len(d.P.Stands) == 0 {
+				<p class="empty">Aucun stand pour l'instant. Ajoutez-en un ci-dessous, par exemple « Buvette ».</p>
+			} else {
+				<ul class="stand-list">
+					for _, st := range d.P.Stands {
+						<li>
+							<a href={ templ.SafeURL("#stand-" + i64(st.ID)) } style={ standStyle(st.Color) }>
+								<span class="dot"></span>
+								<span class="grow">
+									<strong>{ st.Name }</strong>
+									<span class="muted">{ itoa(len(st.Slots)) } { plural(len(st.Slots), "créneau", "créneaux") } · { itoa(st.Count) }/{ itoa(st.Needed) }</span>
+								</span>
+								<span class={ "stand-status", templ.KV("need-text", st.Missing > 0) }>{ standStatus(st) }</span>
+							</a>
+						</li>
+					}
+				</ul>
+			}
+			for i, st := range d.P.Stands {
+				@adminStand(d, st, i == 0, i == len(d.P.Stands)-1)
+			}
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands") } class="card add-stand">
+				<label class="grow">Nouveau stand <input name="name" required maxlength="80" placeholder="Buvette, accueil, rangement…"/></label>
+				<label>Couleur <input type="color" name="color" value={ d.NextColor }/></label>
+				<button class="btn primary" type="submit">
+					@iconPlus()
+					Ajouter
+				</button>
+			</form>
+		</section>
+		@adminTools(d)
+	}
+}
+
+templ adminLinks(d adminPage) {
+	<section class="links" aria-labelledby="links-title">
+		<h2 id="links-title">Les deux liens de l'événement</h2>
+		<div class="link-block secret">
+			<h3>
+				@iconLock()
+				Votre lien d'organisation
+			</h3>
+			<p>Il permet de tout modifier. <strong>Gardez-le pour vous</strong> et les co-organisateurs.</p>
+			<div class="copy-row">
+				<input type="text" readonly value={ d.AdminURL } id="admin-link" aria-label="Lien d'organisation"/>
+				<button type="button" class="btn" data-copy="#admin-link">Copier</button>
+			</div>
+			if d.Event.AdminEmail != "" {
+				<form method="post" action={ templ.SafeURL(d.AdminPath + "/resend") } class="hint">
+					E-mails de l'organisateur envoyés à { d.Event.AdminEmail }{ notifyNote(d.Event.NotifySignups) }.
+					if d.MailEnabled {
+						<button type="submit" class="linklike">Renvoyer les liens par e-mail</button>
+					}
+				</form>
+			}
+		</div>
+		<div class="link-block">
+			<h3>Le lien pour les bénévoles</h3>
+			<div class="copy-row">
+				<input type="text" readonly value={ d.PublicURL } id="public-link" aria-label="Lien pour les bénévoles"/>
+				<button type="button" class="btn" data-copy="#public-link">Copier</button>
+				<a class="btn" href={ templ.SafeURL(d.EventURL) } target="_blank" rel="noopener">Voir</a>
+			</div>
+			<label class="share-label" for="share-msg">Message prêt à envoyer</label>
+			<textarea id="share-msg" readonly rows="4">{ shareMessage(d.Event, d.PublicURL) }</textarea>
+			<button type="button" class="btn tonal block" data-share="#share-msg">
+				@iconShare()
+				Partager le message
+			</button>
+			if d.Event.IsDraft() {
+				<p class="hint">Les bénévoles verront la page dès maintenant, mais ne pourront s'inscrire qu'une fois les inscriptions ouvertes.</p>
+			}
+		</div>
+		if d.ExpiresOn != "" {
+			<p class="hint">L'événement et ses inscriptions seront supprimés automatiquement le { dateFR(d.ExpiresOn) }, { itoa(d.Retention) } jours après l'événement.</p>
+		}
+	</section>
+}
+
+templ adminStand(d adminPage, st *model.StandView, first, last bool) {
+	<section class="stand" id={ "stand-" + i64(st.ID) } style={ standStyle(st.Color) }>
+		<header class="stand-head">
+			<h3><span class="dot"></span>{ st.Name }</h3>
+			<div class="row-actions">
+				<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands/" + i64(st.ID) + "/move") }><input type="hidden" name="dir" value="up"/><button class="btn icon" type="submit" title="Monter" aria-label={ "Monter " + st.Name } disabled?={ first }>↑</button></form>
+				<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands/" + i64(st.ID) + "/move") }><input type="hidden" name="dir" value="down"/><button class="btn icon" type="submit" title="Descendre" aria-label={ "Descendre " + st.Name } disabled?={ last }>↓</button></form>
+			</div>
+		</header>
+		if st.Description != "" {
+			<p class="muted">{ st.Description }</p>
+		}
+		if len(st.Slots) > 0 {
+			<p>
+				<strong>{ itoa(len(st.Slots)) } { plural(len(st.Slots), "créneau", "créneaux") }</strong> · { itoa(st.Count) } { plural(st.Count, "inscrit", "inscrits") }
+				if st.Missing > 0 {
+					· <strong class="need-text">{ lower(placesLeft(st.Missing)) }</strong>
+				}
+			</p>
+		}
+		for _, s := range st.Slots {
+			@adminSlot(d, s)
+		}
+		<details class="sub" open?={ len(st.Slots) == 0 }>
+			<summary>
+				@iconPlus()
+				if len(st.Slots) > 0 {
+					Ajouter des créneaux
+				} else {
+					Créer les créneaux
+				}
+			</summary>
+			@slotGenerator(d, st)
+		</details>
+		<details class="sub">
+			<summary>Modifier le stand</summary>
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands/" + i64(st.ID)) } class="stack">
+				<div class="add-stand">
+					<label class="grow">Nom <input name="name" value={ st.Name } required maxlength="80"/></label>
+					<label>Couleur <input type="color" name="color" value={ cssColor(st.Color) }/></label>
+				</div>
+				<label><span class="label-text">Description <span class="opt">ce que font les bénévoles</span></span> <textarea name="description" rows="2" maxlength="1000">{ st.Description }</textarea></label>
+				<div><button class="btn primary" type="submit">Enregistrer</button></div>
+			</form>
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands/" + i64(st.ID) + "/delete") } data-confirm={ "Supprimer le stand « " + st.Name + " » avec tous ses créneaux et inscriptions ?" }>
+				<p><button class="btn danger-text" type="submit">Supprimer ce stand</button></p>
+			</form>
+		</details>
+	</section>
+}
+
+templ adminSlot(d adminPage, s *model.SlotView) {
+	<article class={ "admin-slot", slotKind(s) }>
+		<div class="admin-slot-head">
+			<h4>
+				if d.P.MultiDay {
+					{ capitalize(dayFR(s.StartsAt)) },
+				}
+				{ hm(s.StartsAt) } – { hm(s.EndsAt) }
+			</h4>
+			<span class={ "slot-status", templ.KV("need-text", s.Missing > 0) }>{ slotStatus(s) }</span>
+			<span class="count">{ itoa(s.Count) }/{ itoa(s.MinPeople) }</span>
+		</div>
+		<p class="muted small">{ slotRule(s) }</p>
+		if len(s.Signups) > 0 {
+			<ul class="people">
+				for _, p := range s.Signups {
+					<li>
+						<span class="grow">
+							<strong>{ p.Name }</strong>
+							if p.Phone != "" {
+								<span class="muted">{ p.Phone }</span>
+							}
+							if p.Comment != "" {
+								<em>« { p.Comment } »</em>
+							}
+						</span>
+						if p.Phone != "" {
+							<a class="btn icon" href={ templ.URL("tel:" + p.Phone) } aria-label={ "Appeler " + p.Name }>@iconPhone()</a>
+						}
+						<form method="post" action={ templ.SafeURL(d.AdminPath + "/signups/" + i64(p.ID) + "/delete") } data-confirm={ "Retirer " + p.Name + " de ce créneau ?" }>
+							<button type="submit" class="btn danger-text small">Retirer</button>
+						</form>
+					</li>
+				}
+			</ul>
+		}
+		<div class="admin-slot-actions">
+			if !s.Full {
+				<details class="sub">
+					<summary>
+						@iconPlus()
+						Inscrire quelqu'un
+					</summary>
+					<form method="post" action={ templ.SafeURL(d.AdminPath + "/signups") } class="stack">
+						<input type="hidden" name="slot" value={ i64(s.ID) }/>
+						<p class="hint">Pour quelqu'un qui a répondu par téléphone ou sur papier, même si les inscriptions sont closes.</p>
+						<label>Prénom et nom <input name="name" required maxlength="80"/></label>
+						<label><span class="label-text">Téléphone <span class="opt">facultatif</span></span> <input type="tel" name="phone" maxlength="30"/></label>
+						<div><button class="btn primary" type="submit">Inscrire</button></div>
+					</form>
+				</details>
+			}
+			<details class="sub">
+				<summary>Horaire, places</summary>
+				<form method="post" action={ templ.SafeURL(d.AdminPath + "/slots/" + i64(s.ID)) } class="stack">
+					<input type="hidden" name="date" value={ s.StartsAt.Format(model.DateLayout) }/>
+					<div class="row2">
+						<label>De <input type="time" name="from" value={ s.StartsAt.Format("15:04") } required/></label>
+						<label>À <input type="time" name="to" value={ s.EndsAt.Format("15:04") } required/></label>
+					</div>
+					<div class="row2">
+						<label>Personnes <input type="number" name="min" value={ itoa(s.MinPeople) } min="1" max="1000" required/></label>
+						<label><span class="label-text">Maximum <span class="opt">facultatif</span></span> <input type="number" name="max" value={ maxValue(s.MaxPeople) } min="1" max="1000"/></label>
+					</div>
+					<div><button class="btn primary" type="submit">Enregistrer</button></div>
+				</form>
+				<form method="post" action={ templ.SafeURL(d.AdminPath + "/slots/" + i64(s.ID) + "/delete") } data-confirm={ deleteSlotConfirm(s) }>
+					<p><button class="btn danger-text" type="submit">Supprimer ce créneau</button></p>
+				</form>
+			</details>
+		</div>
+	</article>
+}
+
+var slotSteps = []struct {
+	Value string
+	Label string
+}{{"30", "30 min"}, {"60", "1 h"}, {"90", "1 h 30"}, {"120", "2 h"}, {"0", "Un seul"}}
+
+templ slotGenerator(d adminPage, st *model.StandView) {
+	{{ g := d.Gen[st.ID] }}
+	<form method="post" action={ templ.SafeURL(d.AdminPath + "/stands/" + i64(st.ID) + "/slots") } class="stack">
+		<p class="hint">Donnez la plage horaire du stand, on la découpe pour vous.</p>
+		<label>Jour <input type="date" name="date" value={ g.Date } required/></label>
+		<div class="row2">
+			<label>De <input type="time" name="from" value={ g.From } required/></label>
+			<label>À <input type="time" name="to" value={ g.To } required/></label>
+		</div>
+		<fieldset class="steps-field">
+			<legend>Durée d'un créneau</legend>
+			<div class="segmented">
+				for _, o := range slotSteps {
+					<label><input type="radio" name="step" value={ o.Value } checked?={ o.Value == "60" }/><span>{ o.Label }</span></label>
+				}
+			</div>
+		</fieldset>
+		<div class="row2">
+			<label>Personnes par créneau <input type="number" name="min" value="2" min="1" max="1000" required/></label>
+			<label><span class="label-text">Maximum <span class="opt">facultatif</span></span> <input type="number" name="max" min="1" max="1000"/></label>
+		</div>
+		<div><button class="btn primary" type="submit">Créer les créneaux</button></div>
+	</form>
+}
+
+// adminGrid is the whole planning with full names: who is where, and when.
+templ adminGrid(p *model.Planning) {
+	<div class="grid-wrap always">
+		<table class="grid admin-grid">
+			<thead>
+				<tr>
+					<th scope="col"><span class="sr-only">Stand</span></th>
+					for _, c := range p.Columns {
+						<th scope="col">
+							if p.MultiDay {
+								<small>{ dayFR(c.StartsAt) }</small>
+								<br/>
+							}
+							{ hm(c.StartsAt) }<small>{ " – " + hm(c.EndsAt) }</small>
+						</th>
+					}
+				</tr>
+			</thead>
+			<tbody>
+				for _, row := range p.Rows {
+					<tr>
+						<th scope="row" style={ standStyle(row.Stand.Color) }><span class="stand-name"><span class="dot"></span>{ row.Stand.Name }</span></th>
+						for _, cell := range row.Cells {
+							<td>
+								for _, s := range cell {
+									<div class={ "slot", slotKind(s) }>
+										<span class="slot-status">{ slotStatus(s) }</span>
+										for _, n := range s.Signups {
+											<span class="slot-names">{ n.Name }</span>
+										}
+									</div>
+								}
+							</td>
+						}
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+templ adminTools(d adminPage) {
+	<section aria-labelledby="tools-title">
+		<h2 id="tools-title">Outils</h2>
+		<div class="tool-links">
+			<a class="btn" href={ templ.SafeURL(d.AdminPath + "/planning.pdf") }>Planning à afficher (PDF)</a>
+			<a class="btn" href={ templ.SafeURL(d.AdminPath + "/export.csv") }>Liste des bénévoles (CSV pour Excel)</a>
+		</div>
+		<details class="card">
+			<summary>Modifier l'événement</summary>
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/event") } class="stack">
+				<label>Nom <input name="title" value={ d.Event.Title } required maxlength="120"/></label>
+				<div class="row2">
+					<label><span class="label-text">Date <span class="opt">facultatif</span></span> <input type="date" name="date" value={ d.Event.Date }/></label>
+					<label><span class="label-text">Lieu <span class="opt">facultatif</span></span> <input name="location" value={ d.Event.Location } maxlength="120"/></label>
+				</div>
+				<label><span class="label-text">Message aux bénévoles <span class="opt">facultatif</span></span> <textarea name="description" rows="3" maxlength="2000">{ d.Event.Description }</textarea></label>
+				<label>E-mail de l'organisateur <input type="email" name="admin_email" value={ d.Event.AdminEmail } required maxlength="120" autocomplete="email"/></label>
+				<label class="check"><input type="checkbox" name="notify" value="1" checked?={ d.Event.NotifySignups }/> <span>Me prévenir par e-mail à chaque inscription ou désinscription</span></label>
+				<div><button class="btn primary" type="submit">Enregistrer</button></div>
+			</form>
+		</details>
+		<details class="card">
+			<summary>Dupliquer pour un nouvel événement</summary>
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/duplicate") } class="stack">
+				<p class="hint">Copie les stands et les créneaux, sans les bénévoles. Avec une nouvelle date, les créneaux sont décalés d'autant.</p>
+				<div class="row2">
+					<label>Nouveau nom <input name="title" required maxlength="120" value={ d.Event.Title + " (copie)" }/></label>
+					<label>Nouvelle date <input type="date" name="date"/></label>
+				</div>
+				if d.NeedPassword {
+					<label>Mot de passe de création <input type="password" name="password" required autocomplete="current-password"/></label>
+				}
+				<div><button class="btn primary" type="submit">Dupliquer</button></div>
+			</form>
+		</details>
+		<details class="card danger-zone">
+			<summary>Après l'événement</summary>
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/purge") } class="stack">
+				<h3>Effacer les noms et téléphones</h3>
+				<p class="hint">Supprime les données des { itoa(d.Volunteers) } { plural(d.Volunteers, "bénévole", "bénévoles") }. Les stands et les créneaux sont gardés.</p>
+				<label class="check"><input type="checkbox" name="confirm" value="yes" required/> <span>Je confirme</span></label>
+				<div><button class="btn danger" type="submit">Effacer les données</button></div>
+			</form>
+			<form method="post" action={ templ.SafeURL(d.AdminPath + "/delete") } class="stack">
+				<h3>Supprimer l'événement</h3>
+				<p class="hint">Suppression définitive de l'événement, de ses stands, créneaux et inscriptions. Les liens ne fonctionneront plus.</p>
+				<label class="check"><input type="checkbox" name="confirm" value="yes" required/> <span>Je confirme</span></label>
+				<div><button class="btn danger" type="submit">Supprimer l'événement</button></div>
+			</form>
+		</details>
+	</section>
+}

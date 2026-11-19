@@ -1,0 +1,290 @@
+package web
+
+import "benevole-ape/internal/model"
+
+templ eventView(d eventPage) {
+	@layout(d.Common, pageOpts{MeLink: meLinkFor(d), Wide: d.Tab != "me"}) {
+		<section class="event-head">
+			<h1>{ d.Event.Title }</h1>
+			@eventMeta(d.Event)
+			if d.Event.Description != "" {
+				<p class="desc">{ d.Event.Description }</p>
+			}
+			if d.Event.IsDraft() {
+				<div class="callout info">{ msgNotOpenYet }</div>
+			} else if d.Event.IsClosed() {
+				<div class="callout info">Les inscriptions sont closes. Merci à toutes et à tous !</div>
+			}
+		</section>
+		if !d.Event.IsDraft() {
+			<div id="planning">
+				if d.Me != nil {
+					<nav class="tabs" aria-label="Vues" hx-boost="true" hx-target="#planning" hx-select="#planning" hx-swap="outerHTML">
+						<a class={ "tab", templ.KV("active", d.Tab != "me") } href={ templ.SafeURL(todoURL(d.EventURL, d.TodoOnly)) } aria-current?={ d.Tab != "me" }>Tous les créneaux</a>
+						<a class={ "tab", templ.KV("active", d.Tab == "me") } href={ templ.SafeURL(d.MeURL) } aria-current?={ d.Tab == "me" }>
+							Mes créneaux <span class="count">{ itoa(len(d.P.MySlots)) }</span>
+						</a>
+					</nav>
+				}
+				if d.Tab == "me" {
+					@mySlots(d)
+				} else {
+					@overview(d)
+				}
+			</div>
+		}
+	}
+}
+
+func meLinkFor(d eventPage) string {
+	if d.Me == nil || d.Tab == "me" {
+		return ""
+	}
+	return d.MeURL
+}
+
+templ eventMeta(ev *model.Event) {
+	if ev.Date != "" || ev.Location != "" {
+		<p class="meta">
+			if ev.Date != "" {
+				{ capitalize(dateFR(ev.Date)) }
+			}
+			if ev.Date != "" && ev.Location != "" {
+				·
+			}
+			{ ev.Location }
+		</p>
+	}
+}
+
+// overview is the public planning: progress, the slots most in need, then
+// every slot.
+templ overview(d eventPage) {
+	if d.P.Needed > 0 {
+		<section class="card summary" aria-label="Avancement">
+			if d.P.Missing > 0 {
+				<p class="big">{ placesLeft(d.P.Missing) }</p>
+			} else {
+				<p class="big">Tous les créneaux sont couverts, merci !</p>
+			}
+			@progress(d.P.Count, d.P.Needed)
+			<p class="muted">{ itoa(d.P.Count) } { plural(d.P.Count, "place prise", "places prises") } sur { itoa(d.P.Needed) }. Une heure suffit !</p>
+		</section>
+	}
+	{{ urgent := urgentSlots(d.P, 3) }}
+	if len(urgent) > 0 && !d.TodoOnly {
+		<section class="urgent">
+			<h2>Là où on a le plus besoin de vous</h2>
+			for _, s := range urgent {
+				<a class="urgent-item" href={ signupURL(d.EventURL, s) } hx-get={ string(signupURL(d.EventURL, s)) } hx-target="#modal">
+					<span>
+						<strong>{ s.Stand.Name } · { slotWhen(d.P, s) }</strong>
+						<span class="need-text">{ urgentText(s) }</span>
+					</span>
+					<span class="btn primary small">J'y vais</span>
+				</a>
+			}
+		</section>
+	}
+	<section class="all-slots">
+		<div class="section-head">
+			<h2>Tous les créneaux</h2>
+			<div hx-boost="true" hx-target="#planning" hx-select="#planning" hx-swap="outerHTML">
+				<a class={ "switch", templ.KV("on", d.TodoOnly) } href={ templ.SafeURL(todoURL(d.EventURL, !d.TodoOnly)) } role="switch" aria-checked={ boolStr(d.TodoOnly) }>
+					<span class="switch-track" aria-hidden="true"></span>
+					Seulement les places à prendre
+				</a>
+			</div>
+		</div>
+		@legend()
+		@planningView(d)
+	</section>
+	<p class="hint">Déjà inscrit sur un autre téléphone ? Ouvrez le lien personnel reçu à l'inscription.</p>
+}
+
+templ legend() {
+	<p class="legend">
+		<span><i class="lg need" aria-hidden="true"></i>Places à prendre</span>
+		<span><i class="lg room" aria-hidden="true"></i>Assez de monde, on peut encore venir</span>
+		<span><i class="lg full" aria-hidden="true"></i>Complet</span>
+	</p>
+}
+
+// planningView is the planning as a table (wide screens) and as a list
+// grouped by time (phones).
+templ planningView(d eventPage) {
+	if len(d.P.Columns) == 0 {
+		<p class="empty">Aucun créneau n'a encore été proposé.</p>
+	} else {
+		<div class="grid-wrap">
+			<table class="grid">
+				<thead>
+					<tr>
+						<th scope="col"><span class="sr-only">Stand</span></th>
+						for _, c := range d.P.Columns {
+							<th scope="col">
+								if d.P.MultiDay {
+									<small>{ dayFR(c.StartsAt) }</small>
+									<br/>
+								}
+								{ hm(c.StartsAt) }<small>{ " – " + hm(c.EndsAt) }</small>
+							</th>
+						}
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range d.P.Rows {
+						<tr>
+							<th scope="row" style={ standStyle(row.Stand.Color) }>
+								<span class="stand-name"><span class="dot"></span>{ row.Stand.Name }</span>
+								if row.Stand.Description != "" {
+									<span class="stand-desc">{ row.Stand.Description }</span>
+									<a class="stand-more" href={ templ.SafeURL(d.EventURL + "/stands/" + i64(row.Stand.ID)) } hx-get={ d.EventURL + "/stands/" + i64(row.Stand.ID) } hx-target="#modal">Voir plus</a>
+								}
+							</th>
+							for _, cell := range row.Cells {
+								<td>
+									for _, s := range cell {
+										@slotCell(d, s, false)
+									}
+								</td>
+							}
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		<div class="timeline">
+			for _, g := range d.P.Groups {
+				if groupShown(d, g) {
+					<section class="tgroup">
+						<h3>
+							if d.P.MultiDay {
+								{ capitalize(dayFR(g.StartsAt)) },
+							}
+							{ hm(g.StartsAt) } – { hm(g.EndsAt) }
+						</h3>
+						for _, s := range g.Slots {
+							@slotCell(d, s, true)
+						}
+					</section>
+				}
+			}
+		</div>
+	}
+}
+
+// slotCell is one slot: a link to sign up when possible, else a box.
+templ slotCell(d eventPage, s *model.SlotView, showStand bool) {
+	if !d.TodoOnly || s.Missing > 0 {
+		if s.CanSignUp {
+			<a class={ "slot", slotKind(s), "st-" + s.Status } href={ signupURL(d.EventURL, s) } hx-get={ string(signupURL(d.EventURL, s)) } hx-target="#modal" style={ standStyle(s.Stand.Color) } aria-label={ s.Stand.Name + ", " + hm(s.StartsAt) + " – " + hm(s.EndsAt) + " : " + slotStatus(s) + ". Je m'inscris" }>
+				@slotBody(s, showStand)
+				<span class="slot-cta" aria-hidden="true">Je m'inscris</span>
+			</a>
+		} else {
+			<div class={ "slot", slotKind(s), "st-" + s.Status, templ.KV("mine", s.Mine), templ.KV("clash", s.Clash) } style={ standStyle(s.Stand.Color) }>
+				@slotBody(s, showStand)
+			</div>
+		}
+	}
+}
+
+templ slotBody(s *model.SlotView, showStand bool) {
+	if showStand {
+		<span class="slot-stand"><span class="dot"></span>{ s.Stand.Name }</span>
+	}
+	if s.Mine {
+		<span class="slot-me">
+			Vous y êtes
+			if s.Clash {
+				· ⚠ en même temps qu'un autre créneau
+			}
+		</span>
+	} else {
+		<span class="slot-status">{ slotStatus(s) }</span>
+	}
+	if len(s.Signups) > 0 {
+		<span class="slot-names">{ publicNames(s.Signups) }</span>
+	}
+}
+
+// mySlots is the volunteer's own page: thanks after a first sign-up, their
+// slots, their calendar, their details and their personal link.
+templ mySlots(d eventPage) {
+	<section class="me-tab">
+		if d.Welcome {
+			<div class="thanks">
+				@iconCheck()
+				<h2>Merci { d.Me.Name } !</h2>
+				<p>C'est noté, on compte sur vous.</p>
+			</div>
+		}
+		<section id="my-slots" aria-labelledby="my-slots-title">
+			<h2 id="my-slots-title">Mes créneaux</h2>
+			if len(d.P.MySlots) == 0 {
+				<p class="empty">Vous n'êtes inscrit·e sur aucun créneau. <a href={ templ.SafeURL(d.EventURL) }>Voir les créneaux</a></p>
+			} else {
+				<p class="meta">
+					{ itoa(len(d.P.MySlots)) } { plural(len(d.P.MySlots), "créneau", "créneaux") } · { durationFR(d.MyP.MyDuration()) } · { itoa(len(d.MyP.Stands)) } { plural(len(d.MyP.Stands), "stand", "stands") }
+					if d.P.HasClash {
+						· <span class="warn">⚠ créneaux en même temps</span>
+					}
+				</p>
+				for _, s := range d.P.MySlots {
+					<article class={ "card my-slot", templ.KV("clash", s.Clash) } style={ standStyle(s.Stand.Color) }>
+						<p class="when">{ capitalize(dayFR(s.StartsAt)) } · { hm(s.StartsAt) } – { hm(s.EndsAt) }</p>
+						<h3><span class="dot"></span>{ s.Stand.Name }</h3>
+						<p class="muted">{ withOthers(s) }</p>
+						if s.Clash {
+							<p class="warn">⚠ En même temps qu'un autre de vos créneaux.</p>
+						}
+						if d.Event.IsOpen() {
+							<form method="post" action={ templ.SafeURL(d.MeURL + "/signups/" + i64(s.MySignupID) + "/delete") } data-confirm={ "Annuler votre inscription : " + s.Stand.Name + ", " + hm(s.StartsAt) + " – " + hm(s.EndsAt) + " ?" } class="cancel-form">
+								<button class="btn" type="submit">Je ne peux plus venir</button>
+							</form>
+						}
+					</article>
+				}
+				<div class="agenda">
+					<a class="btn primary block" href={ templ.SafeURL(d.MeURL + "/agenda.ics") } download>
+						@iconCalendar()
+						Ajouter à mon agenda
+					</a>
+					<p class="hint center">Avec un rappel la veille et une heure avant. Si vous annulez un créneau, supprimez-le aussi de votre agenda.</p>
+				</div>
+			}
+		</section>
+		{{ next := urgentSlots(d.P, 1) }}
+		if len(next) > 0 {
+			<section class="nudge">
+				<h2>Encore un peu de temps ?</h2>
+				<p>{ next[0].Stand.Name }, { slotWhen(d.P, next[0]) } : { lower(placesLeft(next[0].Missing)) }.</p>
+				<a class="btn outline-accent block" href={ signupURL(d.EventURL, next[0]) } hx-get={ string(signupURL(d.EventURL, next[0])) } hx-target="#modal">Je prends aussi ce créneau</a>
+			</section>
+		}
+		<a class="btn block" href={ templ.SafeURL(d.EventURL) }>Voir tous les créneaux</a>
+		<section class="card">
+			<h2>Mes coordonnées</h2>
+			<form method="post" action={ templ.SafeURL(d.MeURL) } class="stack">
+				<label>Prénom et nom <input name="name" value={ d.Me.Name } required maxlength="80" autocomplete="name"/></label>
+				<label><span class="label-text">Téléphone <span class="opt">facultatif, vu seulement par les organisateurs</span></span> <input type="tel" name="phone" value={ d.Me.Phone } maxlength="30" autocomplete="tel"/></label>
+				<div><button class="btn" type="submit">Enregistrer</button></div>
+			</form>
+		</section>
+		<details class="card">
+			<summary>Retrouver mes créneaux sur un autre appareil</summary>
+			<p class="muted">Ce téléphone se souvient de vous. Pour voir ou annuler vos créneaux ailleurs, gardez ce lien : il est à vous seul.</p>
+			<div class="copy-row">
+				<input type="text" readonly value={ d.MeAbsURL } id="me-link" aria-label="Mon lien personnel"/>
+				<button type="button" class="btn" data-copy="#me-link">Copier</button>
+			</div>
+			<form method="post" action={ templ.SafeURL(d.MeURL + "/renew") }>
+				<button type="submit" class="linklike">J'ai partagé mon lien par erreur : en créer un nouveau</button>
+			</form>
+			<form method="post" action={ templ.SafeURL(d.EventURL + "/forget") }>
+				<button type="submit" class="linklike">Vous n'êtes pas { d.Me.Name } ? Oublier sur cet appareil</button>
+			</form>
+		</details>
+	</section>
+}

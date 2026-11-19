@@ -1,7 +1,0 @@
-{{define "content"}}
-<div class="card narrow error-page">
-  <h1>{{if eq .Status 404}}Introuvable{{else if eq .Status 429}}Doucement !{{else}}Oups{{end}}</h1>
-  <p>{{.Message}}</p>
-  <p><button type="button" class="linklike" data-back>← Retour</button> · <a href="/">Accueil</a></p>
-</div>
-{{end}}

@@ -18,7 +18,7 @@ type Mailer interface {
 
 // mailTemplates are plain text (text/template): the same helpers as the
 // pages, no HTML escaping.
-var mailTemplates = template.Must(template.New("mail").Funcs(templateFuncs()).Parse(`
+var mailTemplates = template.Must(template.New("mail").Funcs(mailFuncs()).Parse(`
 {{define "links"}}Bonjour,
 
 {{if .Resent -}}
@@ -32,13 +32,13 @@ Lien d'administration, à garder précieusement :
 
 C'est la seule clé pour gérer l'événement : conservez ce message et ne partagez ce lien qu'avec les autres organisateurs.
 {{if .Resent}}
-Lien public, à partager avec les parents :
+Lien public, à partager avec les bénévoles :
 {{.PublicURL}}
 {{else}}
 Prochaines étapes :
   1. Ajoutez vos stands et leurs créneaux.
   2. Passez l'événement en « Ouvert ».
-  3. Partagez le lien public avec les parents :
+  3. Partagez le lien public avec les bénévoles :
      {{.PublicURL}}
 {{end}}{{if .Event.NotifySignups}}
 Vous recevrez un e-mail à chaque inscription ou désinscription. Vous pouvez les désactiver depuis la page d'administration, dans « Modifier l'événement ».
@@ -56,8 +56,8 @@ Je viens aider
 Téléphone : {{or .Phone "non renseigné"}}{{with .Comment}}
 Commentaire : {{.}}{{end}}
 {{end}}
-Ce créneau : {{.Slot.Count}}/{{.Slot.MinPeople}}{{if .Slot.Missing}}, il manque {{.Slot.Missing}} {{plural .Slot.Missing "personne" "personnes"}}{{else}}, complet{{end}}.
-L'événement : {{.P.Count}}/{{.P.Needed}} places couvertes{{if .P.Missing}}, il manque {{.P.Missing}} {{plural .P.Missing "personne" "personnes"}}{{end}}.
+Ce créneau : {{.Slot.Count}}/{{.Slot.MinPeople}}{{if .Slot.Missing}}, il reste {{.Slot.Missing}} {{plural .Slot.Missing "place" "places"}}{{else}}, complet{{end}}.
+L'événement : {{.P.Count}}/{{.P.Needed}} places couvertes{{if .P.Missing}}, il reste {{.P.Missing}} {{plural .P.Missing "place" "places"}}{{end}}.
 
 Voir le planning et les coordonnées :
 {{.AdminURL}}

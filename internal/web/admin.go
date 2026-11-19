@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"benevole-ape/internal/model"
@@ -99,7 +100,7 @@ func (s *Server) adminPage(w http.ResponseWriter, r *http.Request, ev *model.Eve
 		}
 		expires = store.ExpiresOn(last, s.cfg.RetentionDays).Format(model.DateLayout)
 	}
-	s.render(w, r, http.StatusOK, "admin", adminPage{
+	s.render(w, r, http.StatusOK, adminView(adminPage{
 		Common:       s.common(w, r, "Admin · "+ev.Title),
 		Event:        ev,
 		P:            p,
@@ -115,7 +116,7 @@ func (s *Server) adminPage(w http.ResponseWriter, r *http.Request, ev *model.Eve
 		Retention:    s.cfg.RetentionDays,
 		NeedPassword: s.cfg.CreatePassword != "",
 		MailEnabled:  s.cfg.MailEnabled,
-	})
+	}))
 }
 
 // genDefaults pre-fills a stand's slot generator.
@@ -175,7 +176,7 @@ func (s *Server) adminSetStatus(w http.ResponseWriter, r *http.Request, ev *mode
 	if s.storeError(w, r, s.store.UpdateEvent(r.Context(), ev)) {
 		return
 	}
-	setFlash(w, "success", "Statut : "+eventStatusLabel(st)+".")
+	setFlash(w, "success", "Inscriptions : "+strings.ToLower(eventStatusLabel(st))+".")
 	redirect(w, r, adminURL(ev))
 }
 
@@ -315,7 +316,7 @@ func (s *Server) adminDeleteSlot(w http.ResponseWriter, r *http.Request, ev *mod
 	backToStand(w, r, ev, sl.StandID)
 }
 
-// adminAddSignup registers someone by hand (a parent who phoned in). It is
+// adminAddSignup registers someone by hand (who phoned in). It is
 // allowed whatever the event's status; capacity still applies.
 func (s *Server) adminAddSignup(w http.ResponseWriter, r *http.Request, ev *model.Event) {
 	slotID, err := strconv.ParseInt(r.FormValue("slot"), 10, 64)
